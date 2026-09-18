@@ -1,0 +1,10 @@
+.env
+.git
+.gitignore
+storage/uploads/*
+!storage/uploads/.gitkeep
+storage/ratelimit/*
+!storage/ratelimit/.gitkeep
+storage/firebase-service-account.json
+storage/fcm_access_token.json
+*.md

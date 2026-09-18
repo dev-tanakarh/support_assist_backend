@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# Forward the Authorization header — Apache strips it by default under
+# mod_php/mod_fcgid unless told otherwise.
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Route everything through the front controller unless the file actually exists
+# (this lets /storage/uploads/... still serve real files directly).
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
