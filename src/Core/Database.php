@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Core;
+namespace App\\Core;
 
 use PDO;
 use PDOException;
@@ -23,23 +23,44 @@ class Database
             $db = (string) Env::get('DB_DATABASE', 'supportassist');
             $user = (string) Env::get('DB_USERNAME', $appEnv === 'production' ? '' : 'postgres');
             $pass = (string) Env::get('DB_PASSWORD', $appEnv === 'production' ? '' : 'postgres');
-            $sslMode = (string) Env::get('DB_SSLMODE', $appEnv === 'production' ? 'verify-full' : 'prefer');
+            $sslMode = (string) Env::get(
+                'DB_SSLMODE',
+                $appEnv === 'production' ? 'verify-full' : 'prefer'
+            );
             $sslRootCert = (string) Env::get('DB_SSLROOTCERT', '');
 
             if ($appEnv === 'production') {
-                foreach (['DB_HOST' => $host, 'DB_USERNAME' => $user, 'DB_PASSWORD' => $pass] as $key => $value) {
+                foreach ([
+                    'DB_HOST' => $host,
+                    'DB_USERNAME' => $user,
+                    'DB_PASSWORD' => $pass,
+                ] as $key => $value) {
                     if ($value === '') {
-                        throw new RuntimeException("Missing required environment variable: {$key}");
+                        throw new RuntimeException(
+                            "Missing required environment variable: {$key}"
+                        );
                     }
                 }
-                if ($sslMode !== 'verify-full' || $sslRootCert === '' || !is_readable($sslRootCert)) {
+
+                if ($sslMode !== 'verify-full') {
                     throw new RuntimeException(
-                        'Production PostgreSQL connections require DB_SSLMODE=verify-full and a readable DB_SSLROOTCERT.'
+                        'Production PostgreSQL connections require DB_SSLMODE=verify-full.'
+                    );
+                }
+
+                if (
+                    $sslRootCert === ''
+                    || !is_file($sslRootCert)
+                    || !is_readable($sslRootCert)
+                ) {
+                    throw new RuntimeException(
+                        'Production PostgreSQL connections require a readable DB_SSLROOTCERT file.'
                     );
                 }
             }
 
             $dsn = "pgsql:host={$host};port={$port};dbname={$db};sslmode={$sslMode}";
+
             if ($sslRootCert !== '') {
                 $dsn .= ";sslrootcert={$sslRootCert}";
             }
@@ -50,19 +71,15 @@ class Database
                 PDO::ATTR_EMULATE_PREPARES => false,
                 PDO::ATTR_TIMEOUT => 10,
             ]);
+
+            return self::$instance;
         } catch (PDOException | RuntimeException $e) {
-            // Never send DSNs, credentials, or raw driver errors to API clients.
+            // Log details server-side; never expose credentials to API clients.
             error_log('DB connection failed: ' . $e->getMessage());
             Response::error('Database connection failed', 500);
+
+            // Guard against Response::error unexpectedly returning.
+            throw new RuntimeException('Database connection failed', 0, $e);
         }
-
-        return self::$instance;
     }
-
-error_log('DB SSL diagnostics: mode=' . $sslMode);
-error_log('DB SSL diagnostics: cert_path=' . $sslRootCert);
-error_log('DB SSL diagnostics: cert_readable=' . (is_readable($sslRootCert) ? 'yes' : 'no'));
-error_log('DB SSL diagnostics: cert_exists=' . (file_exists($sslRootCert) ? 'yes' : 'no'));
-
 }
-
