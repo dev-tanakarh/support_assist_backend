@@ -59,3 +59,8 @@ class Database
         return self::$instance;
     }
 }
+
+error_log('DB SSL diagnostics: mode=' . $sslMode);
+error_log('DB SSL diagnostics: cert_path=' . $sslRootCert);
+error_log('DB SSL diagnostics: cert_readable=' . (is_readable($sslRootCert) ? 'yes' : 'no'));
+error_log('DB SSL diagnostics: cert_exists=' . (file_exists($sslRootCert) ? 'yes' : 'no'));
