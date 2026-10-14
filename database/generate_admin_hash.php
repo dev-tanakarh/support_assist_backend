@@ -1,7 +1,7 @@
 <?php
 /**
  * Run: php database/generate_admin_hash.php "yourPassword"
- * Paste the output into seed.sql if you want a different admin password.
+ * Use the output as password_hash when creating the first admin; see DEPLOY_RENDER_SUPABASE.md.
  */
 if ($argc < 2) {
     fwrite(STDERR, "Usage: php generate_admin_hash.php <password>\n");

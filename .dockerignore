@@ -1,10 +1,18 @@
-.env
+# Never bake secrets into the image
 .git
-.gitignore
+.env
+.env.*
+!.env.example
+storage/firebase-service-account.json
+storage/fcm_access_token.json
+
+# Runtime data should not be part of the image
 storage/uploads/*
 !storage/uploads/.gitkeep
 storage/ratelimit/*
 !storage/ratelimit/.gitkeep
-storage/firebase-service-account.json
-storage/fcm_access_token.json
-*.md
+
+# Local-only files
+.DS_Store
+README.md
+DEPLOY_RENDER_SUPABASE.md

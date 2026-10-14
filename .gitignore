@@ -1,9 +1,16 @@
+# Environment and secrets
 .env
+.env.*
+!.env.example
+storage/firebase-service-account.json
+storage/fcm_access_token.json
+
+# Runtime files (keep empty directories with .gitkeep)
 storage/uploads/*
 !storage/uploads/.gitkeep
 storage/ratelimit/*
 !storage/ratelimit/.gitkeep
-storage/fcm_access_token.json
-storage/firebase-service-account.json
+
+# Dependencies / OS files
 vendor/
 .DS_Store

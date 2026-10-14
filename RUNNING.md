@@ -1,115 +1,41 @@
-# Starting the Backend
+# Running SupportAssist Backend
 
-This project is now configured and ready to run. Use one of these methods:
+## Local development
 
-## Option 1: PowerShell (Recommended)
+1. Install PHP 8.3+ and PostgreSQL, or use the existing local Docker Compose setup.
+2. Copy `.env.example` to `.env` and configure the local database credentials and a unique `JWT_SECRET`.
+3. Create the schema and category seed using `database/schema.sql` and `database/seed.sql` if your database has not been initialized.
+4. Start the development server:
 
-```powershell
-.\start.ps1
-```
+   ```bash
+   php -S localhost:8080 -t public
+   ```
 
-Or from anywhere:
-```powershell
-cd c:\Users\DELL\Downloads\supportassist-backend\supportassist-backend
-.\start.ps1
-```
+5. Test the service:
 
-## Option 2: Batch File (Double-click)
+   ```bash
+   curl -i http://localhost:8080/health
+   ```
 
-Simply double-click `start.bat` in the project folder.
+Create the first administrator with a unique password hash using the instructions in `DEPLOY_RENDER_SUPABASE.md`. This project intentionally no longer ships a known default administrator account.
 
-## Option 3: Manual Command
+## Database settings
 
-```powershell
-$env:PGPASSWORD = "tanaka"
-C:\Users\DELL\Downloads\php-8.5.10-nts-Win32-vs17-x64\php.exe -S localhost:8080 -t public
-```
+Use the values configured in your local `.env`. Do not put real database passwords in this file, in scripts, or in Git-tracked documentation. `.env` is ignored by Git; `.env.example` contains placeholders only.
 
----
+## Push notifications (optional)
 
-## What's Running
+1. If a Firebase service-account key was ever shared or committed, revoke it and generate a replacement.
+2. Store the replacement JSON outside the public document root and outside Git. For Render, use a Secret File at `/etc/secrets/firebase-service-account.json`.
+3. Set `FCM_PROJECT_ID` and `FCM_SERVICE_ACCOUNT_PATH` in the environment. Leave `FCM_PROJECT_ID` unset if push notifications are not required.
+4. The Android client should call `POST /api/user/fcm-token` after login and when its Firebase messaging token changes.
 
-Once started, the API is available at:
-- **URL:** http://localhost:8080/api
-- **Default Login:** admin@helpdesk.com / admin123
+## Deployment
 
-## Quick Test
+Follow [`DEPLOY_RENDER_SUPABASE.md`](DEPLOY_RENDER_SUPABASE.md) for the Render Docker service, Supabase Session Pooler, verified TLS, environment variables, database setup, and free-tier limitations.
 
-```bash
-curl -X POST http://localhost:8080/api/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@helpdesk.com","password":"admin123"}'
-```
+## Notes
 
-## Database
-
-- **Type:** PostgreSQL 16
-- **Host:** 127.0.0.1
-- **Port:** 5432
-- **Database:** supportassist
-- **User:** postgres
-- **Password:** tanaka
-
-## Stopping the Server
-
-Press `Ctrl+C` in the terminal.
-
----
-
-## Common Issues
-
-**"Database connection failed"**
-- Ensure PostgreSQL is running
-- Check `.env` has correct DB_PASSWORD
-
-**"PHP not recognized"**
-- The startup scripts assume PHP is at: `C:\Users\DELL\Downloads\php-8.5.10-nts-Win32-vs17-x64\php.exe`
-- Update the path in `start.ps1` or `start.bat` if needed
-
-**"JWT_SECRET is not configured"**
-- Ensure `.env` file exists and has JWT_SECRET set
-
----
-
-## Push Notifications (FCM)
-
-1. Firebase Console → your project → ⚙️ Project Settings → Service Accounts →
-   "Generate new private key". Save the downloaded JSON as
-   `storage/firebase-service-account.json` (already gitignored).
-2. In `.env`, set `FCM_PROJECT_ID` to your Firebase project id.
-3. That's it — `Alert::create()` now pushes automatically whenever it fires,
-   which covers status changes, assignments, and new-ticket alerts. Nothing
-   else to wire up. If `FCM_PROJECT_ID` is blank, pushes silently no-op —
-   safe to leave unset while developing.
-4. Android side needs to call `POST /api/user/fcm-token` with
-   `{"fcm_token": "<token from FirebaseMessaging.getInstance().getToken()>"}`
-   after login and whenever `FirebaseMessagingService.onNewToken()` fires.
-
-## Real-time updates without WebSockets
-
-`GET /api/alerts/poll?since=<ISO8601>&timeout=25` long-polls: the request
-stays open, checking for new alerts once a second, and returns the moment
-something shows up (or after `timeout` seconds with nothing). The client
-loop is: call it, take whatever `alerts` array comes back (may be empty),
-then immediately call again using the response's `serverTime` as the next
-`since`. That gives near-instant updates on both the web app and mobile
-without a WebSocket server — appropriate for this stack, since Socket.io
-needs a persistent Node process and this backend is plain PHP-FPM.
-
-**This is not free at scale.** Every open poll holds a PHP-FPM worker for up
-to `timeout` seconds — it's not one lightweight connection like a real
-WebSocket, it's a parked worker. If ~100 of your 500 hospital staff have the
-web app open at once, that's ~100 workers tied up just waiting. Check (and
-raise) `pm.max_children` in whatever php-fpm pool config you deploy with —
-the Alpine image's default is low, sized for quick request/response traffic,
-not long-held connections. If usage ever grows well past a few hundred
-concurrent pollers, that's the point to actually stand up a small
-Node/Swoole WebSocket service for this one endpoint rather than scaling
-PHP-FPM workers — long-polling stops being the right tool past that point.
-
----
-
-*(Unrelated, but worth fixing separately: this file has a real DB password
-in it above — "Password: tanaka" — and it looks like it's committed to the
-repo. Rotate that password and don't put real credentials in a markdown
-file that goes into version control, even for a local dev DB.)*
+- Render's free filesystem is ephemeral. Ticket attachments written to `storage/uploads` may disappear after redeploys or instance replacement. Move attachments to durable object storage before relying on them.
+- The file-based rate limiter is best-effort and can reset after redeploys.
+- Forgot-password is disabled in production until a real email provider is integrated; in local development, reset tokens are logged for testing only. Do not enable token logging in production.

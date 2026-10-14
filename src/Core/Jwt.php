@@ -20,8 +20,8 @@ class Jwt
     private static function secret(): string
     {
         $secret = Env::get('JWT_SECRET');
-        if (!$secret || $secret === 'change_this_to_a_long_random_string') {
-            throw new RuntimeException('JWT_SECRET is not configured. Set it in .env');
+        if (!$secret || $secret === 'change_this_to_a_long_random_string' || strlen($secret) < 32) {
+            throw new RuntimeException('JWT_SECRET must be configured with at least 32 characters.');
         }
         return $secret;
     }

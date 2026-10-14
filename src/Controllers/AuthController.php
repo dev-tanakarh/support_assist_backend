@@ -89,6 +89,13 @@ class AuthController
      */
     public function forgotPassword(Request $request): void
     {
+        // This project has no configured email provider. Never expose reset
+        // tokens in production logs; add a real mailer before enabling this
+        // endpoint in production.
+        if (Env::get('APP_ENV', 'local') === 'production') {
+            Response::error('Password reset is not configured. Please contact support.', 503);
+        }
+
         $errors = $request->validateRequired(['email']);
         if ($errors) {
             Response::error('Validation failed', 422, $errors);

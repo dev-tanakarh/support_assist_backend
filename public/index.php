@@ -12,20 +12,32 @@ require_once __DIR__ . '/../src/autoload.php';
 Env::load(__DIR__ . '/../.env');
 
 // ---------------------------------------------------------------------------
-// CORS — the web app (HTML/CSS/JS) is served from a different origin than
-// this API in dev, and the Android app has no origin at all. Reflect the
-// request origin rather than "*" so credentials/cookies could be added
-// later without a second CORS pass.
+// CORS: only reflect origins explicitly configured by the operator.
+// Set APP_CORS_ORIGINS to a comma-separated list of exact frontend origins.
+// Requests from native mobile clients (without Origin) remain supported.
 // ---------------------------------------------------------------------------
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
-header("Access-Control-Allow-Origin: $origin");
-header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Max-Age: 86400');
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigins = array_values(array_filter(array_map(
+    'trim',
+    explode(',', (string) Env::get('APP_CORS_ORIGINS', ''))
+)));
+
+if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Vary: Origin');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Access-Control-Max-Age: 86400');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
+}
+
+// Lightweight platform health check. Does not require database availability.
+if (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) === '/health') {
+    Response::json(['status' => 'ok']);
 }
 
 // ---------------------------------------------------------------------------
