@@ -9,6 +9,7 @@ use App\Models\Alert;
 use App\Models\Ticket;
 use App\Models\User;
 use RuntimeException;
+use App\Core\Database;
 
 class TicketController
 {
@@ -68,12 +69,22 @@ class TicketController
             Response::error('Validation failed', 422, ['priority' => 'Must be one of: ' . implode(', ', self::VALID_PRIORITIES)]);
         }
 
-        $attachmentUrl = null;
-        try {
-            $attachmentUrl = FileUpload::storeImage($request->file('attachment'));
-        } catch (RuntimeException $e) {
-            Response::error($e->getMessage(), 422);
-        }
+        
+$attachmentUrl = null;
+$attachmentThumbnailUrl = null;
+$uploadedFile = $request->file('attachment');
+
+try {
+    $image = FileUpload::storeTicketAttachment($uploadedFile);
+
+    if ($image !== null) {
+        $attachmentUrl = $image['url'];
+        $attachmentThumbnailUrl = $image['thumbnailUrl'];
+    }
+} catch (RuntimeException $e) {
+    Response::error($e->getMessage(), 422);
+}
+
 
         $ticket = Ticket::create([
             'user_id' => $request->user['id'],
@@ -84,8 +95,55 @@ class TicketController
             'device_type' => $request->input('device_type'),
             'room' => $request->input('room'),
             'attachment_url' => $attachmentUrl,
+            'attachment_thumbnail_url' => $attachmentThumbnailUrl,
             'priority' => $priority,
         ]);
+
+        // Save uploaded image metadata in PostgreSQL.
+if ($attachmentUrl !== null) {
+    $absolutePath = dirname(__DIR__, 2)
+    . '/storage/uploads/'
+    . substr($attachmentUrl, strlen('/storage/uploads/'));
+
+    if (!is_file($absolutePath)) {
+        throw new RuntimeException(
+            'Uploaded image could not be found after saving.'
+        );
+    }
+
+    $mimeType = mime_content_type($absolutePath);
+    $fileSize = filesize($absolutePath);
+
+    if ($mimeType === false || $fileSize === false) {
+        throw new RuntimeException(
+            'Could not read uploaded image metadata.'
+        );
+    }
+
+    
+$stmt = Database::connection()->prepare("
+    INSERT INTO images (
+        filename,
+        file_path,
+        mime_type,
+        file_size
+    )
+    VALUES (
+        :filename,
+        :file_path,
+        :mime_type,
+        :file_size
+    )
+");
+
+$stmt->execute([
+    'filename' => basename($uploadedFile['name'] ?? 'image.webp'),
+    'file_path' => $attachmentUrl,
+    'mime_type' => $mimeType,
+    'file_size' => $fileSize,
+]);
+
+}
 
         // Notify admins a new ticket needs triage.
         foreach (User::all('ADMIN') as $admin) {
@@ -203,17 +261,38 @@ class TicketController
         Response::success(Ticket::toArray($updated), 200, 'Ticket accepted.');
     }
 
-    private function assertCanView(array $viewer, array $ticket): void
-    {
-        if ($viewer['userType'] === 'ADMIN') {
-            return;
-        }
-        if ($viewer['userType'] === 'TECHNICIAN' && $ticket['assigned_technician_id'] === $viewer['id']) {
-            return;
-        }
-        if ($viewer['userType'] === 'END_USER' && $ticket['user_id'] === $viewer['id']) {
-            return;
-        }
-        Response::error('You do not have permission to view this ticket.', 403);
+    
+private function assertCanView(array $viewer, array $ticket): void
+{
+    if ($viewer['userType'] === 'ADMIN') {
+        return;
     }
+
+    if ($viewer['userType'] === 'TECHNICIAN') {
+        $assignedTechnicianId = $ticket['assigned_technician_id'] ?? null;
+
+        // Technicians may view their own assigned tickets
+        // and tickets that have not yet been assigned.
+        if (
+            $assignedTechnicianId === null ||
+            $assignedTechnicianId === '' ||
+            $assignedTechnicianId === $viewer['id']
+        ) {
+            return;
+        }
+    }
+
+    if (
+        $viewer['userType'] === 'END_USER' &&
+        $ticket['user_id'] === $viewer['id']
+    ) {
+        return;
+    }
+
+    Response::error(
+        'You do not have permission to view this ticket.',
+        403
+    );
+}
+
 }

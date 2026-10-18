@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS users (
     name            VARCHAR(120) NOT NULL,
     email           VARCHAR(160) NOT NULL UNIQUE,
     phone           VARCHAR(30),
+    avatar_url      TEXT,
+    avatar_thumbnail_url TEXT,
     password_hash   VARCHAR(255) NOT NULL,
     user_type       user_type_enum NOT NULL DEFAULT 'END_USER',
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
@@ -54,6 +56,9 @@ CREATE TABLE IF NOT EXISTS users (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_thumbnail_url TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_users_user_type ON users(user_type);
 
@@ -99,6 +104,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     category_id             INT REFERENCES ticket_categories(id),
     assigned_technician_id  UUID REFERENCES users(id),
     attachment_url          TEXT,
+    attachment_thumbnail_url TEXT,
     department              VARCHAR(100),
     device_type             VARCHAR(100),
     room                    VARCHAR(100),
@@ -110,6 +116,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     search_vector           TSVECTOR
 );
+
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS attachment_thumbnail_url TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON tickets(user_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
@@ -216,3 +224,29 @@ CREATE TABLE IF NOT EXISTS password_resets (
 );
 
 CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
+
+CREATE TABLE IF NOT EXISTS images (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    ticket_id VARCHAR(20) NOT NULL
+        REFERENCES tickets(id) ON DELETE CASCADE,
+
+    uploaded_by UUID NOT NULL
+        REFERENCES users(id) ON DELETE CASCADE,
+
+    original_filename VARCHAR(255),
+
+    file_path TEXT NOT NULL,
+
+    mime_type VARCHAR(100) NOT NULL,
+
+    file_size BIGINT NOT NULL CHECK (file_size >= 0),
+
+    uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_images_ticket_id
+    ON images(ticket_id);
+
+CREATE INDEX IF NOT EXISTS idx_images_uploaded_by
+    ON images(uploaded_by);

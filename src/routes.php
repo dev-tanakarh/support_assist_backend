@@ -41,6 +41,7 @@ $router->post('/api/refresh', [$authController, 'refresh'], [$rateLimit]);
 // ---------------------------------------------------------------------------
 $router->get('/api/profile', [$profileController, 'show'], [$auth]);
 $router->patch('/api/profile', [$profileController, 'update'], [$auth]);
+$router->post('/api/profile/avatar', [$profileController, 'uploadAvatar'], [$auth]);
 $router->post('/api/user/fcm-token', [$profileController, 'updateFcmToken'], [$auth]);
 
 // ---------------------------------------------------------------------------

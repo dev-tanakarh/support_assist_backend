@@ -47,10 +47,10 @@ class Ticket
             $stmt = $db->prepare("
                 INSERT INTO tickets
                     (id, user_id, subject, description, category_id, department,
-                     device_type, room, attachment_url, priority, due_at)
+                     device_type, room, attachment_url, attachment_thumbnail_url, priority, due_at)
                 VALUES
                     (:id, :user_id, :subject, :description, :category_id, :department,
-                     :device_type, :room, :attachment_url, :priority, now() + (:sla_hours || ' hours')::interval)
+                     :device_type, :room, :attachment_url, :attachment_thumbnail_url, :priority, now() + (:sla_hours || ' hours')::interval)
                 RETURNING *
             ");
             $stmt->execute([
@@ -63,6 +63,7 @@ class Ticket
                 'device_type' => $data['device_type'] ?? null,
                 'room' => $data['room'] ?? null,
                 'attachment_url' => $data['attachment_url'] ?? null,
+                'attachment_thumbnail_url' => $data['attachment_thumbnail_url'] ?? null,
                 'priority' => $priority,
                 'sla_hours' => $slaHours,
             ]);
@@ -289,6 +290,7 @@ class Ticket
             'deviceType' => $t['device_type'],
             'room' => $t['room'] ?? null,
             'attachmentUrl' => $t['attachment_url'],
+            'attachmentThumbnailUrl' => $t['attachment_thumbnail_url'] ?? null,
             'category' => $t['category_id'] ? ['id' => (int) $t['category_id'], 'name' => $t['category_name']] : null,
             'reporter' => [
                 'id' => $t['user_id'],

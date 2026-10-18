@@ -50,7 +50,7 @@ class User
     public static function all(?string $userType = null): array
     {
         $sql = "
-            SELECT u.id, u.name, u.email, u.phone, u.user_type, u.is_active, u.created_at,
+            SELECT u.id, u.name, u.email, u.phone, u.avatar_url, u.avatar_thumbnail_url, u.user_type, u.is_active, u.created_at,
                    AVG(r.rating) AS avg_rating, COUNT(r.id) AS review_count
             FROM users u
             LEFT JOIN reviews r ON r.technician_id = u.id
@@ -104,6 +104,8 @@ class User
             'name' => $user['name'],
             'email' => $user['email'],
             'phone' => $user['phone'],
+            'avatarUrl' => $user['avatar_url'] ?? null,
+            'avatarThumbnailUrl' => $user['avatar_thumbnail_url'] ?? null,
             'userType' => $user['user_type'],
             'isActive' => (bool) $user['is_active'],
             'createdAt' => $user['created_at'],
